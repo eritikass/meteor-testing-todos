@@ -22,3 +22,5 @@ insecure                # Allow all DB writes from clients (for prototyping)
 less
 iron:router
 ongoworks:transliteration
+accounts-password
+accounts-ui

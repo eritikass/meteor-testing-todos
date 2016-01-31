@@ -4,5 +4,10 @@
 
 console.log('client');
 
-//var tr = require('transliteration');
 
+
+Template.main.helpers({
+    'getYear': function(){
+        return (new Date()).getFullYear();
+    }
+});

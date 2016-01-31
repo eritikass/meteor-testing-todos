@@ -4,7 +4,7 @@
 
 Template.lists.helpers({
     'list': function(){
-        return Lists.find({}, {sort: {name: 1}}).map(function(item) {
+        return Lists.find({createdBy: Meteor.userId()}, {sort: {name: 1}}).map(function(item) {
             if (!item.nameTranslit) {
                 item.nameTranslit = item._id;
             }
