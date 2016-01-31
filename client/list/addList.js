@@ -18,7 +18,7 @@ Template.addList.events({
                 nameTranslit: nameTranslit,
             }, function(error, result) {
                 console.log(error, result);
-                Router.go('listPage', { _id: result });
+                Router.go('listPage', { nameTranslit: nameTranslit });
             });
         });
 
