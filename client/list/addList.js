@@ -15,7 +15,7 @@ Template.addList.events({
             return alert('not logged in');
         }
 
-        Meteor.call('getSafeListName', listName, function(err, nameTranslit) {
+        Meteor.call('getSafeListName', listName, currentUser, function(err, nameTranslit) {
             //console.log('@', listName, nameTranslit);
             Lists.insert({
                 name: listName,

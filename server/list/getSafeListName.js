@@ -8,38 +8,48 @@ Meteor.startup(function () {
 
 
     Meteor.methods({
-        'getSafeListName': function (listname) {
+        /**
+         * get safe unique translited listname
+         *
+         * @param {string} listname
+         * @param {string} userId
+         * @returns {string}
+         */
+        'getSafeListName': function (listname, userId) {
 
-            var listnameSafe;
+            var listNameSafe;
 
             try {
                 // translit list name
-                listnameSafe = Transliteration.slugify(listname, {lowercase: true, separator: '_'});
+                listNameSafe = Transliteration.slugify(listname, {lowercase: true, separator: '_'});
             } catch (e) {
                 console.log('exception:Transliteration.slugify', e);
             }
 
-            if (!listnameSafe) {
+            if (!listNameSafe) {
                 // just use placholder name if list have no real name after translit
-                listnameSafe = 'list';
+                listNameSafe = 'list';
             }
 
             // check if list name has used, if it has add some number end of it
-            var listnameSafe_ORG = listnameSafe;
+            var listNameSafe_ORG = listNameSafe;
             var count = 0;
             while (true) {
-                var listFound = Lists.findOne({nameTranslit: listnameSafe});
-                if (!listFound) {
-                    // no list found, success
+                var args = {nameTranslit: listNameSafe};
+                if (userId) {
+                    args.createdBy = userId;
+                }
+                if (!Lists.findOne(args)) {
+                    // no list found, success - name fine to use
                     break;
                 }
 
                 // get list name +1
-                listnameSafe = listnameSafe_ORG + '_' + ( ++count );
+                listNameSafe = listNameSafe_ORG + '_' + ( ++count );
             }
 
             // return valid list name
-            return listnameSafe;
+            return listNameSafe;
         }
     });
 
