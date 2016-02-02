@@ -2,7 +2,6 @@
  * Created by eritikass on 01/02/16.
  */
 
-// use > http://todopostest.meteor.com/posapi/call?keyID=*&vCode=*&system=*&planet=*&moon=*
 
 // @link https://github.com/eritikass/google_spreadsheet_eve_postracker/blob/master/towerdata.gs#L36
 var POS_DATA = {
@@ -460,8 +459,6 @@ function getMoonPosOnlineUntilStr(keyID, vCode, moonID) {
         return 'pos not found';
     }
 
-    //console.log(pos);
-
     if (pos && pos.pos_onlineUntil && pos.pos_cachedUntil && (pos.pos_cachedUntil > new Date())) {
         console.log('no update, cached pos data');
         return get_onlineuntil_DH_str(pos.pos_onlineUntil);
@@ -473,14 +470,11 @@ function getMoonPosOnlineUntilStr(keyID, vCode, moonID) {
         return 'pos type not found (' + pos.typeID + ')';
     }
 
-    //
-    //console.log(posType);
 
     var api_url_posdata = "http://api.eveonline.com/corp/StarbaseDetail.xml.aspx?keyID=" + keyID + "&vCode=" + vCode + "&itemID=" + pos.itemID;
 
     var xmlStr = HTTP.call('GET', api_url_posdata, {timeout: 5000, params: {}});
 
-    //console.log(xmlStr.content);
 
     var xmlDom = Meteor.npmRequire('xmldom');
     var DOMParser = xmlDom.DOMParser;
@@ -506,7 +500,6 @@ function getMoonPosOnlineUntilStr(keyID, vCode, moonID) {
         if (quantity && (typeID == posType.fuel.typeID)) {
             fuelBlocksLeft = quantity;
         }
-        //console.log(typeID + ' > ' + quantity);
     });
 
     var fuelHLeft = fuelBlocksLeft ? parseInt(fuelBlocksLeft / posType.fuel.hour) : 0;
@@ -532,7 +525,7 @@ function showResXml(res, response) {
 }
 
 Router.map(function() {
-    this.route('methodExample', {
+    this.route('posapi_call', {
         path: '/posapi/call',
         where: 'server',
         action: function() {
