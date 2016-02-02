@@ -426,6 +426,8 @@ function fetchPosList(keyID, vCode) {
         var res = HTTP.call('GET', urlMoonJson, {timeout: 5000, params: {}});
 
         _.forEach(JSON.parse(res.content), function(moon, index) {
+            moon.planet = parseInt(moon.planet, 10);
+            moon.moon = parseInt(moon.moon, 10);
             moon.nameTranslit = Transliteration.slugify(moon.moonName, {lowercase: false, separator: '_'});
             EveMoons.remove({moonID: moon.moonID});
             EveMoons.insert(moon);
@@ -539,21 +541,29 @@ Router.map(function() {
             var requestMethod = this.request.method;
             var query = this.request.query;
 
-            var keyID = query.keyID;
-            var vCode = query.vCode;
+            var keyID = parseInt(query.keyID, 10);
+            var vCode = (query.vCode || '').trim();
+
+            if (!keyID || !vCode) {
+                return showResXml('keyID/vCode missing!', this.response);
+            }
+
+            var system = (query.system || '').trim();
+            var moonNr = parseInt(query.moon, 10);
+            var planet = parseInt(query.planet, 10);
+
+            if (!system || !moonNr || !planet) {
+                return showResXml('-', this.response);
+            }
 
             fetchPosList(keyID, vCode);
-
-            var system = query.system;
-            var moonNr = query.moon;
-            var planet = query.planet;
-
 
             var args = {
                 "systemName": system,
                 "planet": planet,
                 "moon": moonNr
             };
+
             var moon = EveMoons.findOne(args);
 
             if (!moon) {
