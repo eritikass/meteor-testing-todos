@@ -678,38 +678,38 @@ function fetch_silos(keyID, vCode) {
         }
 
 
-/*
+        /*
 
-        for (var moonID in towers) {
-            var tower = towers[moonID];
-            if (!tower.moon) { continue; }
-            if (tower.locationID != silo.locationID) { continue; }
-            var moon = tower.moon;
+         for (var moonID in towers) {
+         var tower = towers[moonID];
+         if (!tower.moon) { continue; }
+         if (tower.locationID != silo.locationID) { continue; }
+         var moon = tower.moon;
 
-            console.log(tower.locationID, silo.locationID, (tower.locationID != silo.locationID));
+         console.log(tower.locationID, silo.locationID, (tower.locationID != silo.locationID));
 
-            // http://www.calculatorsoup.com/calculators/geometry-solids/distance-two-points.php
-            var distance = Math.sqrt(
-                // x2-x1
-                Math.pow((moon.x-x),2) +
-                // y2-y1
-                Math.pow((moon.y-y),2) +
-                // z2-z1
-                Math.pow((moon.z-z),2)
-            );
+         // http://www.calculatorsoup.com/calculators/geometry-solids/distance-two-points.php
+         var distance = Math.sqrt(
+         // x2-x1
+         Math.pow((moon.x-x),2) +
+         // y2-y1
+         Math.pow((moon.y-y),2) +
+         // z2-z1
+         Math.pow((moon.z-z),2)
+         );
 
-            console.log(moon.x + ', ' + moon.y  + ', ' + moon.z);
-            console.log(x + ', ' + y  + ', ' + z);
+         console.log(moon.x + ', ' + moon.y  + ', ' + moon.z);
+         console.log(x + ', ' + y  + ', ' + z);
 
-            console.log(moon.nameTranslit + ' / ' + distance);
+         console.log(moon.nameTranslit + ' / ' + distance);
 
-            //console.log(tower);
+         //console.log(tower);
 
 
-            //break;
-        }
+         //break;
+         }
 
-*/
+         */
 
     });
 
@@ -743,15 +743,15 @@ function test_eveonlinejs(keyID, vCode, characterID) {
         characterID: characterID,
     });
 
-/*
-    eveonlinejs.fetch('eve:SkillTree', function (err, result) {
-        if (err) throw err;
+    /*
+     eveonlinejs.fetch('eve:SkillTree', function (err, result) {
+     if (err) throw err;
 
-        for (var groupID in result.skillGroups) {
-            console.log(result.skillGroups[groupID].groupName);
-        }
-    });
-*/
+     for (var groupID in result.skillGroups) {
+     console.log(result.skillGroups[groupID].groupName);
+     }
+     });
+     */
 
 // EveSilos
 
