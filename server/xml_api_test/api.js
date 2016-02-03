@@ -346,6 +346,7 @@ var POS_DATA = {
 
 EvePos = new Meteor.Collection('evePos');
 EveMoons = new Meteor.Collection('eveMoons');
+EveSilos = new Meteor.Collection('eveSilos');
 
 
 function fetchPosList(keyID, vCode) {
@@ -354,7 +355,7 @@ function fetchPosList(keyID, vCode) {
     var last_updated = EvePos.findOne({keyMD5: keyMD5, new: true}, {sort: {list_cachedUntil: 1}});
     if (last_updated && !(last_updated.list_cachedUntil < new Date())) {
         console.log('no update, cached pos list')
-        return;
+        //return;
     }
 
     var api_poslist = 'http://api.eveonline.com/corp/StarbaseList.xml.aspx?keyID=' + keyID + '&vCode=' + vCode;
@@ -386,24 +387,24 @@ function fetchPosList(keyID, vCode) {
     }
 
     _.forEach(moonsFind, function(row, index) {
-        var moonID = row.getAttribute('moonID');
+        var moonID = parseInt(row.getAttribute('moonID'), 10);
 
 
 
         var moonData = {
             keyMD5: keyMD5,
-            itemID: row.getAttribute('itemID'),
-            typeID: row.getAttribute('typeID'),
-            locationID: row.getAttribute('locationID'),
+            itemID: parseInt(row.getAttribute('itemID'), 10),
+            typeID: parseInt(row.getAttribute('typeID'), 10),
+            locationID: parseInt(row.getAttribute('locationID'), 10),
             moonID: moonID,
-            state: row.getAttribute('state'),
+            state: parseInt(row.getAttribute('state'), 10),
             stateTimestamp: moment.utc(row.getAttribute('stateTimestamp')).toDate(),
             onlineTimestamp: moment.utc(row.getAttribute('onlineTimestamp')).toDate(),
             standingOwnerID: row.getAttribute('standingOwnerID'),
             list_currentTime: moment.utc(currentTime).toDate(),
             list_cachedUntil: moment.utc(cachedUntil).toDate(),
             new: true,
-        }
+        };
 
         var findPos = EvePos.findOne({moonID: moonID});
         if (findPos) {
@@ -421,7 +422,7 @@ function fetchPosList(keyID, vCode) {
 
 
     if (moonsNotFound.length > 0) {
-        var urlMoonJson = 'http://eve.kassikas.net/json/moonjson.php?moonIDs=' + moonsNotFound.join(';');
+        var urlMoonJson = 'http://eve.kassikas.net/json/moonjson.php?extended=1&moonIDs=' + moonsNotFound.join(';');
         var res = HTTP.call('GET', urlMoonJson, {timeout: 5000, params: {}});
 
         _.forEach(JSON.parse(res.content), function(moon, index) {
@@ -524,6 +525,286 @@ function showResXml(res, response) {
     response.end('<?xml version="1.0" encoding="UTF-8"?><fuelres><value>' + res + '</value></fuelres>');
 }
 
+function displaySilo(keyID, vCode, moonID, siloNr, response) {
+    console.log(siloNr);
+    var keyMD5 = CryptoJS.MD5(keyID + '@' + vCode).toString();
+    var siloNr = Math.max( Math.max(parseInt(siloNr, 10))-1, 0);
+
+    var Q = {keyMD5: keyMD5, moonID: moonID};
+    var opt = {sort: {content_quantity: -1}, limit: 1, skip: siloNr};
+
+    console.log(Q);
+    console.log(opt);
+
+    var siloFromDb = EveSilos.findOne(Q, opt);
+    console.log(siloFromDb);
+
+    response.writeHead(200, {'Content-Type': 'text/xml'});
+    response.end('<?xml version="1.0" encoding="UTF-8"?><silo>'
+        +'<typeID>' + (siloFromDb && siloFromDb.content_typeID || '-') + '</typeID>'
+        +'<quantity>' + (siloFromDb && siloFromDb.content_quantity || '-') + '</quantity>'
+        +'</silo>');
+
+}
+
+function fetch_silos(keyID, vCode) {
+    var keyMD5 = CryptoJS.MD5(keyID + '@' + vCode).toString();
+    var siloTypeID = 14343;
+
+    var siloFromDb = EveSilos.findOne({keyMD5: keyMD5}, {sort: {asset_cachedUntil: -1}});
+    if (siloFromDb && siloFromDb.asset_cachedUntil && siloFromDb.asset_cachedUntil && (siloFromDb.asset_cachedUntil > new Date())) {
+        console.log('no update, silo data cached');
+        return;
+    }
+
+
+    // get list of systems we have towers to get only silo located there
+    var towers = {};
+    _.forEach(EvePos.find({keyMD5: keyMD5, new: true}).fetch(), function(pos) {
+        towers[pos.moonID] = pos;
+    });
+
+    var systemIds = _.unique(_.map(towers, function(pos) {
+        return pos.locationID;
+    }));
+
+    _.forEach(EveMoons.find({"systemID": { $in: systemIds }}).fetch(), function(moon) {
+        towers[moon.moonID].moon = moon;
+    });
+
+
+    var api_url_posdata = "http://api.eveonline.com/corp/AssetList.xml.aspx?keyID=" + keyID + "&vCode=" + vCode;
+
+    var xmlStr = HTTP.call('GET', api_url_posdata, {timeout: 5000, params: {}});
+
+    var xmlDom = Meteor.npmRequire('xmldom');
+    var DOMParser = xmlDom.DOMParser;
+
+    var doc = new DOMParser().parseFromString(xmlStr.content);
+
+    var currentTime = null;
+    _.forEach(doc.getElementsByTagName('currentTime'), function(row, index) {
+        currentTime = row.childNodes && row.childNodes[0] && row.childNodes[0].nodeValue;
+    });
+
+    var cachedUntil = null;
+    _.forEach(doc.getElementsByTagName('cachedUntil'), function(row, index) {
+        cachedUntil = row.childNodes && row.childNodes[0] && row.childNodes[0].nodeValue;
+    });
+
+
+    var silos = {};
+    var itemIds = [];
+    _.forEach(doc.getElementsByTagName('row'), function(row) {
+        var typeID = parseInt(row.getAttribute('typeID'), 10);
+        var itemID = row.getAttribute('itemID');
+        var locationID = parseInt(row.getAttribute('locationID'), 10);
+
+        //if (locationID != 30004304) { return; }
+
+        // filter out all the wrong items and silos in corp hangars and stuff
+        if (typeID != siloTypeID || !locationID || !_.contains(systemIds, locationID)) {
+            return;
+        }
+
+        silos[itemID] = {
+            itemID: itemID,
+            locationID: locationID,
+            content_typeID: null,
+            content_quantity: 0,
+            asset_currentTime: moment.utc(currentTime).toDate(),
+            asset_cachedUntil: moment.utc(cachedUntil).toDate(),
+            //moonId: false,
+            keyMD5: keyMD5
+        };
+
+
+        _.forEach(row.getElementsByTagName('row'), function(rowItem) {
+            console.log(rowItem.getAttribute('typeID') + ' > ' + rowItem.getAttribute('quantity'));
+            silos[itemID].content_typeID = parseInt(rowItem.getAttribute('typeID'), 10);
+            silos[itemID].content_quantity = parseInt(rowItem.getAttribute('quantity'), 10);
+        });
+
+        var moonDb = EveSilos.findOne({itemID: itemID});
+        if (!moonDb || moonDb.moonId) {
+            itemIds.push(itemID);
+        }
+
+    });
+
+    var itemIds = _.unique(itemIds);
+
+    var api_url_locations = "http://api.eveonline.com/corp/Locations.xml.aspx?keyID=" + keyID + "&vCode=" + vCode + "&ids=" + itemIds.join(',');
+
+
+    var xmlStr = HTTP.call('GET', api_url_locations, {timeout: 5000, params: {}});
+
+    var xmlDom = Meteor.npmRequire('xmldom');
+    var DOMParser = xmlDom.DOMParser;
+
+    var doc = new DOMParser().parseFromString(xmlStr.content);
+
+    _.forEach(doc.getElementsByTagName('row'), function(row) {
+        var itemID = row.getAttribute('itemID');
+        var x = parseInt(row.getAttribute('x'), 10);
+        var y = parseInt(row.getAttribute('y'), 10);
+        var z = parseInt(row.getAttribute('z'), 10);
+        var itemName = (row.getAttribute('itemName') || '').trim();
+
+        var silo = silos[itemID];
+        if (!silo) { return; }
+
+        //if (itemID != 1018022972868) { return; }
+        //console.log(itemID, x, y, z, itemName);
+        console.log({itemID: itemID});
+
+        var moonDb = EveSilos.findOne({itemID: itemID});
+        if (!moonDb || !moonDb.moonId) {
+            var json_closest_celestial = 'https://www.fuzzwork.co.uk/api/nearestCelestial.php?x=' + x + '&y=' + y + '&z=' + z + '&solarsystemid=' + silo.locationID;
+            console.log(json_closest_celestial);
+
+            var jsonStr = HTTP.call('GET', json_closest_celestial, {timeout: 5000, params: {}});
+            var locJson = JSON.parse(jsonStr.content);
+            if (locJson.itemid) {
+                silos[itemID].moonId = locJson.itemid;
+            }
+
+            if (moonDb) {
+                EveSilos.update(moonDb._id, silo);
+            } else {
+                EveSilos.insert(silo);
+            }
+
+        }
+
+
+/*
+
+        for (var moonID in towers) {
+            var tower = towers[moonID];
+            if (!tower.moon) { continue; }
+            if (tower.locationID != silo.locationID) { continue; }
+            var moon = tower.moon;
+
+            console.log(tower.locationID, silo.locationID, (tower.locationID != silo.locationID));
+
+            // http://www.calculatorsoup.com/calculators/geometry-solids/distance-two-points.php
+            var distance = Math.sqrt(
+                // x2-x1
+                Math.pow((moon.x-x),2) +
+                // y2-y1
+                Math.pow((moon.y-y),2) +
+                // z2-z1
+                Math.pow((moon.z-z),2)
+            );
+
+            console.log(moon.x + ', ' + moon.y  + ', ' + moon.z);
+            console.log(x + ', ' + y  + ', ' + z);
+
+            console.log(moon.nameTranslit + ' / ' + distance);
+
+            //console.log(tower);
+
+
+            //break;
+        }
+
+*/
+
+    });
+
+
+    _.forEach(silos, function(silo) {
+        var moonDb = EveSilos.findOne({itemID: silo.itemID});
+
+        if (moonDb) {
+            //if (moonDb.moonId) {
+            //    silo.moonID = moonDb.moonId;
+            //}
+            //if (moonDb.content_typeID) {
+            //    silo.content_typeID = moonDb.content_typeID;
+            //}
+            EveSilos.update(moonDb._id, silo);
+        } else {
+            EveSilos.insert(silo);
+        }
+    });
+
+}
+
+function test_eveonlinejs(keyID, vCode, characterID) {
+    var eveonlinejs = Meteor.npmRequire('eveonlinejs');
+
+    var siloTypeID = 14343;
+
+    eveonlinejs.setParams({
+        keyID: keyID,
+        vCode: vCode,
+        characterID: characterID,
+    });
+
+/*
+    eveonlinejs.fetch('eve:SkillTree', function (err, result) {
+        if (err) throw err;
+
+        for (var groupID in result.skillGroups) {
+            console.log(result.skillGroups[groupID].groupName);
+        }
+    });
+*/
+
+// EveSilos
+
+    var silos = {};
+
+    eveonlinejs.fetch('corp:AssetList', function (err, result) {
+        if (err) throw err;
+
+        console.log(result.currentTime);
+        console.log(result.cachedUntil);
+
+
+        _.forEach(result.assets, function (item) {
+            var typeId = parseInt(item.typeID, 10);
+            if (typeId != siloTypeID) { return; }
+
+            var silo = {
+                systemID: parseInt(item.locationID, 10),
+                itemID: parseInt(item.itemID, 10),
+                //content_typeID: null,
+                content_quantity: 0,
+                currentTime: moment.utc(result.currentTime).toDate(),
+                cachedUntil: moment.utc(result.cachedUntil).toDate()
+            };
+
+            if (silo.itemID != 1016055823156) { return; }
+
+            if (item.contents) { // && item.contents[item.itemID]) {
+                console.log(item.contents); //[item.itemID]);
+                console.log(item.contents[item.itemID]);
+
+                _.forEach(item.contents, function (citem) {
+                    //console.log(citem);
+                    //console.log(citem.typeID);
+                    //console.log(citem.quantity);
+                    silo.content_typeID = parseInt(citem.typeID, 10);
+                    silo.content_quantity = parseInt(citem.quantity, 10);
+                });
+
+            }
+
+            //EveSilos.insert({})
+
+            console.log(silo);
+
+
+        });
+    });
+
+    console.log('aaa');
+
+}
+
 Router.map(function() {
     this.route('posapi_call', {
         path: '/posapi/call',
@@ -549,6 +830,8 @@ Router.map(function() {
                 return showResXml('-', this.response);
             }
 
+            //test_eveonlinejs(keyID, vCode, 241675010);
+
             fetchPosList(keyID, vCode);
 
             var args = {
@@ -562,6 +845,15 @@ Router.map(function() {
             if (!moon) {
                 return showResXml('moon not found', this.response);
             }
+
+            var siloNr = parseInt(query.silo, 10) || 0;
+
+            if (siloNr) {
+                fetch_silos(keyID, vCode);
+                displaySilo(keyID, vCode, moon.moonID, siloNr, this.response);
+                return;
+            }
+
 
             var res = getMoonPosOnlineUntilStr(keyID, vCode, moon.moonID);
 

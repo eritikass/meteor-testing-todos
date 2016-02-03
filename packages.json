@@ -1,3 +1,4 @@
 {
-  "xmldom": "0.1.22"
+  "xmldom":       "0.1.22",
+  "eveonlinejs":  "2.0.0"
 }
