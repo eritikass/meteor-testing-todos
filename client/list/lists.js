@@ -12,3 +12,7 @@ Template.lists.helpers({
         })
     }
 });
+
+Template.lists.onCreated(function () {
+    this.subscribe('lists');
+});

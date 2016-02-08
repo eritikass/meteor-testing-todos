@@ -3,9 +3,13 @@
     {{> addTodo}}
 
     <ul class="todolist">
-        {{#each todo}}
-            {{> todoItem}}
-        {{/each}}
+        {{#if Template.subscriptionsReady}}
+            {{#each todo}}
+                {{> todoItem}}
+            {{/each}}
+        {{else}}
+            <li>Loading (todos)...</li>
+        {{/if}}
     </ul>
     {{> todosCount}}
 </template>
